@@ -22,7 +22,7 @@
 | 转录阶段耗时 | `120190ms` / `120183ms` | `perf_tracker:track:68` |
 | 任务时间 | `task_cc2eeeeb…` 00:22:18→00:24:19；`task_c3b6e0be…` 00:47:18→00:49:19 | 同上 |
 | 生产 SDK 与 pin 一致 | 容器 `capswriter_asr/client.py` sha256 `ff476ad7cd40401b7ed77c7606cb4fc14dc3d529043c29c4714b199c13423cdf` == 本地 pin `858c6b9` 同文件 sha256 | `docker exec sha256sum` vs `sha256sum ~/.cache/uv/git-v0/…/858c6b9/…` |
-| ASR 端点与探活 | `ws://192.168.31.222:6016`，GET `/health` → `protocol_version=2, role=server, encodings=[f32le,s16le,flac,ogg_opus], model=paraformer` | 生产 config 单键 grep + n305 单 URL GET |
+| ASR 端点与探活 | `ws://<ASR_HOST>:6016`（内网端点，公开仓脱敏），GET `/health` → `protocol_version=2, role=server, encodings=[f32le,s16le,flac,ogg_opus], model=paraformer` | 生产 config 单键 grep + n305 单 URL GET |
 | 对照组（自动预算下成功） | `task_9ec7a075…` m4a 走 sdk_auto，转录 321208ms 成功 | `perf_tracker` |
 
 ### 关键推论（有观测支撑，非猜测）
@@ -54,14 +54,14 @@
 
 **已证环节**：`GenericDownloader` 不探测时长 → `media_duration=None` → 不传 `deadline_total` → SDK 自动预算 120 秒 → 客户端 timeout 显式失败。
 
-**未知（不可由现有证据判定）**：服务端 `192.168.31.222:6016` 对这份 5.55s wav 的真实行为——是没收到、是收到了不处理、还是处理了但不发 final。`/health` 只证明进程活着，不证明该任务的服务端终态。
+**未知（不可由现有证据判定）**：服务端 `<ASR_HOST>:6016` 对这份 5.55s wav 的真实行为——是没收到、是收到了不处理、还是处理了但不发 final。`/health` 只证明进程活着，不证明该任务的服务端终态。
 
 已被现有证据**排除**的说法：
 - 「FunASR 成功 = CapsWriter 已修」：FunASR 是另一条链路，不构成 CapsWriter 的对照成功。
 - 「121 秒说明时限太短」：短音频自动预算下限恒为 120 秒，与媒体长短无关；把它调大只会换一个数字，不能解释服务端为何不回。
 - 「5.55s < file_seg_duration 25 是分段缺陷」：SDK 发的是**单帧** `is_final=true`、整段 flac 都在一帧里（`b64_bytes=56540`），分段由服务端做；本卡无任何证据指向分段。
 
-**缺的最小实验（需主脑授权，本卡不做）**：向 `192.168.31.222:6016` 提交同一份 5.55s wav（生产 ASR 提交音频，本卡明令禁止），同一时刻抓服务端日志/结果，判定「服务端是否返回、何时返回」。若服务端其实在数分钟内正常返回，则根因转为客户端预算策略；若服务端根本不回，根因在服务端，本仓改动无效。
+**缺的最小实验（需主脑授权，本卡不做）**：向 `<ASR_HOST>:6016` 提交同一份 5.55s wav（生产 ASR 提交音频，本卡明令禁止），同一时刻抓服务端日志/结果，判定「服务端是否返回、何时返回」。若服务端其实在数分钟内正常返回，则根因转为客户端预算策略；若服务端根本不回，根因在服务端，本仓改动无效。
 
 **输入样本可复核程度：低。** 生产日志只留下文件名 `asr_example_zh.wav` 与 0.17 MB 两项；该文件已随任务结束从 `data/temp` 清理（`ls data/temp` 为空），5.55s 来自验收输入资料，日志与任务表都没有媒体时长字段。本地探针用的是自造正弦 wav，只能复现**预算行为**，不能替代原样本。
 
@@ -119,7 +119,7 @@
 | `ssh n305 'grep -c "task_cc2eeeeb…" logs/app.log'` | 0 | 30 行命中 |
 | `ssh n305 'grep -E "开始转录文件|转录完成，生成文件|转录文件失败" logs/app.log'` | 0 | 转录时间线白名单 |
 | `ssh n305 'grep -c "transcription_deadline" logs/app.log'` | 0 | 9 行，8 行 `duration=unknown` |
-| `ssh n305 'curl -s --max-time 8 http://192.168.31.222:6016/health | python3 -c …'` | 0 | 只投影 4 个白名单字段 |
+| `ssh n305 'curl -s --max-time 8 http://<ASR_HOST>:6016/health | python3 -c …'` | 0 | 只投影 4 个白名单字段 |
 | `ssh n305 'docker exec … sha256sum …/capswriter_asr/client.py'` | 0 | 与 pin 比对 |
 
 本地（worktree）：
