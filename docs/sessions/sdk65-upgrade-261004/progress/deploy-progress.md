@@ -49,7 +49,7 @@
       POST→终态 11.232s，纯 ASR `transcription: 299ms`，管线 total 575ms。
       缓存未命中 → 下载 `asr_example_zh.wav`（0.17MB）→ CapsWriter 调用（尝试 1/5，无重试/无 timeout）→
       1 个 segment、`text_accu=20 字符`；产物 `transcript_capswriter.txt` 60 字节（非空）。
-      服务端同任务：源 IP `192.168.31.219`、音频 5.55s、19:25:55 连接 → 19:25:56 断开（≈1s，非 120s）。
+      服务端同任务：源 IP 为 n305 内网地址（已脱敏）、音频 5.55s、19:25:55 连接 → 19:25:56 断开（≈1s，非 120s）。
 - [x] M4 样本字节核验：n305 独立下载 `http=200 / 177572 bytes / sha256=a1bd32dc78493c123f9625a66deee562aed2895f53fbc39f2cca3be7e6f4f20f`，
       带本次 `?v=` query 的同一 URL 字节数与哈希完全相同。
 - [x] M5 清理：本卡 `/tmp/sdk65-verify`（含 0600 凭据头文件）已删除并复核不存在；

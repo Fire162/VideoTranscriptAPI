@@ -132,7 +132,7 @@ docker manifest inspect --verbose ghcr.io/zj1123581321/video-transcript-api:ffbd
 19:25:55 [缓存检测] ❌ 缓存未命中，准备下载和转录
 19:25:56 文件下载成功: data/temp/task_task_7c71ffc0e4f64b3bbdf47a46b65ada8a/asr_example_zh.wav (大小: 0.17 MB)
 19:25:56 [perf] … | download: 248ms (OK)
-19:25:56 已配置CapsWriter客户端，服务器: 192.168.31.222:6016
+19:25:56 已配置CapsWriter客户端，服务器: <CapsWriter服务端内网地址>:6016
 19:25:56 调用CapsWriter客户端转录文件: …/asr_example_zh.wav
 19:25:56 开始转录文件: …/asr_example_zh.wav (尝试 1/5)
 19:25:56 transcription_deadline duration=unknown fallback=sdk_auto
@@ -157,15 +157,15 @@ docker manifest inspect --verbose ghcr.io/zj1123581321/video-transcript-api:ffbd
 `capswriter_server_main/logs/pm2-out.log`（行 1743-1751）：
 
 ```
-2026-10-04T19:25:55: 客户端已连接: 192.168.31.219:47206
+2026-10-04T19:25:55: 客户端已连接: <n305内网地址>:<ephemeral-port>
 2026-10-04T19:25:55: 音频文件接收完毕，时长 5.55s
 2026-10-04T19:25:56:   模型输出：…
 2026-10-04T19:25:56:   格式化后：…
-2026-10-04T19:25:56: 客户端已断开: 192.168.31.219:47206
+2026-10-04T19:25:56: 客户端已断开: <n305内网地址>:<ephemeral-port>
 ```
 
 四元组关联（同一任务的唯一指纹）：
-1. 源 IP `192.168.31.219` = n305 宿主；
+1. 源 IP 为 n305 宿主的内网地址（私网地址按公开仓出站扫描规则脱敏）；
 2. 服务端收得音频时长 **5.55s**，与公开样本 `5.546688s` 及卡面基线一致；
 3. 连接→断开窗口 `19:25:55 → 19:25:56`（≈1s），与 API 侧 `transcription: 299ms` 同窗口；
    **旧 pin 的签名行为是客户端挂到 120s 预算耗尽才断开（历史 `task_cc2eeeeb…` 即此形态），本次 1s 内断开。**
@@ -285,8 +285,9 @@ ssh n305 'sha256sum /opt/media/VideoTranscriptAPI/docker-compose.yml \
   /opt/media/VideoTranscriptAPI/config/users.json /opt/media/VideoTranscriptAPI/.env'
 
 # 5) CapsWriter 服务端未动（PID / 启动时间 / HEAD / 健康）
+#    CAPSWRITER_HOME = 服务端 pm2 托管的服务仓根目录（绝对路径属私有基础设施信息，报告内不落盘）
 ssh mac-studio 'ps -eo pid,lstart,command | grep start_server.py | grep -v grep'
-ssh mac-studio 'cd /Users/zhanglixing/Production/capswriter_server_main && git rev-parse HEAD'
+ssh mac-studio 'cd "$CAPSWRITER_HOME" && git rev-parse HEAD'
 ssh mac-studio 'curl -s -m 5 -o /dev/null -w "%{http_code}\n" http://127.0.0.1:6016/health'
 
 # 6) 本次任务的产物与终态（只投影长度与状态，不回显正文/标题）
@@ -297,7 +298,7 @@ import sqlite3;con=sqlite3.connect(\"file:/app/data/cache/cache.db?mode=ro\",uri
 print(list(con.execute(\"select task_id,status,completed_at from task_status where task_id=?\",(\"task_7c71ffc0e4f64b3bbdf47a46b65ada8a\",))))"'
 
 # 7) 服务端同任务日志（只读，按时间窗 grep 关键字，不整段回显）
-ssh mac-studio 'grep -a "19:25:5" /Users/zhanglixing/Production/capswriter_server_main/logs/pm2-out.log | cut -c1-120'
+ssh mac-studio 'grep -a "19:25:5" "$CAPSWRITER_HOME/logs/pm2-out.log" | cut -c1-120'
 ```
 
 安全约束遵守情况：全程未打印 `.env` / `config.jsonc` / `users.json` 内容、未打印 token 值、未回显转录正文/标题、
